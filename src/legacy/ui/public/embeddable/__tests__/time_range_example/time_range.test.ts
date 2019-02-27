@@ -39,11 +39,11 @@ beforeEach(() => {
 test('embeddable displays correct time', () => {
   const embeddable1 = new ClockEmbeddable({
     id: '123',
-    initialState: getTimeRangeObject('now', 'now-45m'),
+    initialOutput: getTimeRangeObject('now', 'now-45m'),
   });
   const embeddable2 = new ClockEmbeddable({
     id: '456',
-    initialState: getTimeRangeObject('now', 'now-60m'),
+    initialOutput: getTimeRangeObject('now', 'now-60m'),
   });
 
   expect(embeddable1.getOutput()).toEqual(getTimeRangeObject('now', 'now-45m'));
@@ -70,11 +70,11 @@ test('embeddable displays correct time', () => {
 test('when action is executed to modify embeddable, time is updated', () => {
   const embeddable1 = new ClockEmbeddable({
     id: '123',
-    initialState: getTimeRangeObject('now', 'now-45m'),
+    initialOutput: getTimeRangeObject('now', 'now-45m'),
   });
   const embeddable2 = new ClockEmbeddable({
     id: '456',
-    initialState: getTimeRangeObject('now', 'now-60m'),
+    initialOutput: getTimeRangeObject('now', 'now-60m'),
   });
 
   const timeRangeAction = actionRegistry.getActionById(TIME_RANGE_ACTION_ID);
@@ -86,8 +86,7 @@ test('when action is executed to modify embeddable, time is updated', () => {
 
   timeRangeAction.execute({
     embeddable: embeddable1,
-    containerContext: container.getState(),
-    actionContext: { inherit: false, timeRange: timeRangeOverride },
+    actionInput: { inherit: false, timeRange: timeRangeOverride },
   });
 
   expect(container.getState().timeRange).toEqual(initialTimeRange);
@@ -106,8 +105,7 @@ test('when action is executed to modify embeddable, time is updated', () => {
 
   timeRangeAction.execute({
     embeddable: embeddable1,
-    containerContext: container.getState(),
-    actionContext: { inherit: false, timeRange: initialTimeRange },
+    actionInput: { inherit: false, timeRange: initialTimeRange },
   });
 
   expect(embeddable1.getOutput()).toEqual(initialTimeRange);

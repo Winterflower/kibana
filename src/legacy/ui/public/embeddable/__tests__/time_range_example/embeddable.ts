@@ -25,25 +25,21 @@ interface ContainerContext {
 }
 
 export class ClockEmbeddable extends Embeddable<ContainerContext, TimeRange> {
-  private timeRange: TimeRange;
-
-  constructor({ id, initialState }: { id: string; initialState: TimeRange }) {
-    super({
-      id,
-      type: 'ClockEmbeddable',
-    });
-    this.timeRange = initialState;
-  }
-
-  public getOutput() {
-    return this.timeRange;
+  constructor({ id, initialOutput }: { id: string; initialOutput: TimeRange }) {
+    super(
+      {
+        id,
+        type: 'ClockEmbeddable',
+      },
+      initialOutput
+    );
   }
 
   public render() {
     return;
   }
 
-  protected onInputChange(input: ContainerContext) {
-    this.timeRange = input.timeRange;
+  protected handleInputChanges(input: ContainerContext) {
+    this.output = input.timeRange;
   }
 }

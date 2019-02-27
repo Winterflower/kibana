@@ -22,13 +22,13 @@ import { i18n } from '@kbn/i18n';
 import { connect } from 'react-redux';
 import {
   buildEuiContextMenuPanels,
-  ContainerState,
+  ContextMenuAction,
   ContextMenuPanel,
-  Embeddable,
+  getTrigger,
 } from 'ui/embeddable';
 import { panelActionsStore } from '../../store/panel_actions_store';
+
 import {
-  getCustomizePanelAction,
   getEditPanelAction,
   getInspectorPanelAction,
   getRemovePanelAction,
@@ -47,8 +47,14 @@ import {
 } from '../../actions';
 
 import { Dispatch } from 'redux';
+import { AnyAction, SHOW_EDIT_MODE_TRIGGER, SHOW_VIEW_MODE_TRIGGER } from 'ui/embeddable';
 import { CoreKibanaState } from '../../../selectors';
 import { DashboardViewMode } from '../../dashboard_view_mode';
+import {
+  DashboardContainer,
+  DashboardEmbeddable,
+  DashboardEmbeddableInput,
+} from '../../embeddables/dashboard_container';
 import {
   getContainerState,
   getEmbeddable,
@@ -73,14 +79,14 @@ interface PanelOptionsMenuContainerDispatchProps {
 
 interface PanelOptionsMenuContainerOwnProps {
   panelId: PanelId;
-  embeddable?: Embeddable;
+  embeddable: DashboardEmbeddable;
+  container: DashboardContainer;
 }
-
 interface PanelOptionsMenuContainerStateProps {
   panelTitle?: string;
   editUrl: string | null | undefined;
   isExpanded: boolean;
-  containerState: ContainerState;
+  containerState: DashboardEmbeddableInput;
   visibleContextMenuPanelId: PanelId | undefined;
   isViewMode: boolean;
 }
@@ -164,6 +170,7 @@ const mergeProps = (
 
   let panels: EuiContextMenuPanelDescriptor[] = [];
 
+  let getPanels: () => Promise<EuiContextMenuPanelDescriptor[]> = () => Promise.resolve([]);
   // Don't build the panels if the pop over is not open, or this gets expensive - this function is called once for
   // every panel, every time any state changes.
   if (isPopoverOpen) {
@@ -174,36 +181,62 @@ const mergeProps = (
       id: 'mainMenu',
     });
 
-    const actions = [
-      getInspectorPanelAction({
-        closeContextMenu: closeMyContextMenuPanel,
-        panelTitle,
-      }),
-      getEditPanelAction(),
-      getCustomizePanelAction({
-        onResetPanelTitle,
-        onUpdatePanelTitle,
-        title: panelTitle,
-        closeContextMenu: closeMyContextMenuPanel,
-      }),
-      getToggleExpandPanelAction({ isExpanded, toggleExpandedPanel }),
-      getRemovePanelAction(onDeletePanel),
-    ].concat(panelActionsStore.actions);
+    const triggerId =
+      ownProps.container.getOutput().view.viewMode === DashboardViewMode.EDIT
+        ? SHOW_EDIT_MODE_TRIGGER
+        : SHOW_VIEW_MODE_TRIGGER;
 
-    panels = buildEuiContextMenuPanels({
-      contextMenuPanel,
-      actions,
-      embeddable: ownProps.embeddable,
-      containerState,
-    });
+    getPanels = async () => {
+      const trigger = await getTrigger(triggerId);
+      const actions = trigger.getCompatibleActions({
+        embeddable: ownProps.embeddable,
+        container: ownProps.container,
+      });
+
+      const wrappedForContextMenu = actions.map((action: AnyAction) => {
+        if (action.id) {
+          return new ContextMenuAction(
+            {
+              id: action.id,
+              displayName: action.title,
+              parentPanelId: 'mainMenu',
+            },
+            {
+              onClick: ({ embeddable, container }) => action.execute({ embeddable, container }),
+            }
+          );
+        }
+      });
+
+      const contextMenuActions = [
+        //   getInspectorPanelAction({
+        //     closeContextMenu: closeMyContextMenuPanel,
+        //     panelTitle,
+        //   }),
+        //  // getEditPanelAction(),
+        getToggleExpandPanelAction({ isExpanded, toggleExpandedPanel }),
+        getRemovePanelAction(onDeletePanel),
+      ]
+        .concat(panelActionsStore.actions)
+        .concat(wrappedForContextMenu);
+
+      panels = buildEuiContextMenuPanels<DashboardEmbeddable, DashboardContainer>({
+        contextMenuPanel,
+        actions: contextMenuActions,
+        embeddable: ownProps.embeddable,
+        container: ownProps.container,
+      });
+      return panels;
+    };
   }
 
   return {
-    panels,
+    getPanels,
     toggleContextMenu,
     closeContextMenu: closeMyContextMenuPanel,
     isPopoverOpen,
     isViewMode,
+    container: ownProps.container,
   };
 };
 

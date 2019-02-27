@@ -17,4 +17,4 @@
  * under the License.
  */
 
-export { Container } from './container';
+export { Container, AnyContainer } from './container';

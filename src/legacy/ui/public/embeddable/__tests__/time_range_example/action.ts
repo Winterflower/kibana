@@ -19,53 +19,56 @@
 
 import { Action } from 'ui/embeddable/actions';
 import { ExecuteOptions } from 'ui/embeddable/actions/action';
+import { SHOW_EDIT_MODE_TRIGGER, triggerRegistry } from 'ui/embeddable/actions/trigger_registry';
 import { TimeRange } from 'ui/visualize';
 import { actionRegistry } from '../../actions';
 import { Embeddable } from '../../embeddables';
 
-interface ActionContext {
+interface ActionInput {
   timeRange?: TimeRange;
   inherit: boolean;
 }
 
-interface ContainerContext {
+interface TimeRangeState {
   timeRange: TimeRange;
 }
 
 const MIGRATOR_ID = 'timeRangeModifier';
 export const TIME_RANGE_ACTION_ID = 'timerrange';
 
-interface TimeRangeActionConfiguration extends ExecuteOptions<ContainerContext, ActionContext> {
-  embeddable: Embeddable<ContainerContext, any>;
-  containerContext: ContainerContext;
-  actionContext: ActionContext;
+type TimeRangeEmbeddable = Embeddable<TimeRangeState, any>;
+type TimeRangeContainer = Embeddable<any, TimeRangeState>;
+
+interface TimeRangeActionConfiguration
+  extends ExecuteOptions<TimeRangeEmbeddable, TimeRangeContainer> {
+  embeddable: TimeRangeEmbeddable;
+  actionInput: ActionInput;
 }
 
-export class TimeOverrideAction extends Action<ContainerContext, ActionContext> {
+export class TimeOverrideAction extends Action<
+  TimeRangeState,
+  TimeRangeEmbeddable,
+  TimeRangeContainer
+> {
   constructor() {
     super({ id: TIME_RANGE_ACTION_ID });
   }
-  public isCompatable({
-    embeddable,
-    containerContext,
-  }: {
-    embeddable: Embeddable<ContainerContext, any>;
-    containerContext: ContainerContext;
-  }) {
+
+  public isCompatible(embeddable: TimeRangeEmbeddable) {
     return Promise.resolve(true);
   }
 
-  public execute({ embeddable, actionContext }: TimeRangeActionConfiguration) {
+  public execute({ embeddable, actionInput }: TimeRangeActionConfiguration) {
     embeddable.removeInputMigrator(MIGRATOR_ID);
 
-    if (!actionContext.inherit && actionContext.timeRange) {
+    if (!actionInput.inherit && actionInput.timeRange) {
       embeddable.addInputMigrator({
         id: MIGRATOR_ID,
-        migrate: (input: ContainerContext) => {
-          return actionContext.timeRange
+        migrate: (input: TimeRangeState) => {
+          return actionInput.timeRange
             ? {
                 ...input,
-                timeRange: actionContext.timeRange,
+                timeRange: actionInput.timeRange,
               }
             : input;
         },
@@ -75,3 +78,5 @@ export class TimeOverrideAction extends Action<ContainerContext, ActionContext> 
 }
 
 actionRegistry.registerAction(new TimeOverrideAction());
+
+triggerRegistry.getTrigger(SHOW_EDIT_MODE_TRIGGER).addAction(new TimeOverrideAction());

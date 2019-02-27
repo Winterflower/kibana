@@ -17,5 +17,8 @@
  * under the License.
  */
 
-export { Action } from './action';
-export { actionRegistry } from './actions_registry';
+export * from './action';
+export * from './get_actions';
+export { ActionSavedObject, ActionSavedObjectAttributes } from './action_saved_object';
+export { ActionFactory } from './action_factory';
+export { actionFactoryRegistry } from './action_factory_registry';

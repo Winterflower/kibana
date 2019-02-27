@@ -17,11 +17,9 @@
  * under the License.
  */
 
-export { Embeddable } from './embeddable';
+export { Embeddable, AnyEmbeddable } from './embeddable';
+export { EmbeddableInstanceConfiguration, EmbeddableFactory } from './embeddable_factory';
 export {
-  EmbeddableInstanceConfiguration,
-  EmbeddableFactory,
-  OnEmbeddableStateChanged,
-} from './embeddable_factory';
-
-export { EmbeddableFactoriesRegistryProvider } from './embeddable_factories_registry';
+  EmbeddableFactoriesRegistryProvider,
+  embeddableFactories,
+} from './embeddable_factories_registry';

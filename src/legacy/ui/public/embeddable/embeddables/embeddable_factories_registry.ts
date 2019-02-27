@@ -18,6 +18,7 @@
  */
 
 // @ts-ignore: implicit any for JS file
+import { AnyEmbeddableFactory } from 'ui/embeddable/embeddables/embeddable_factory';
 import { uiRegistry } from '../../registry/_registry';
 
 /**
@@ -27,3 +28,21 @@ export const EmbeddableFactoriesRegistryProvider = uiRegistry({
   index: ['name'],
   name: 'embeddableFactories',
 });
+
+export class EmbeddableFactoryRegistry {
+  private factories: { [key: string]: AnyEmbeddableFactory } = {};
+
+  public registerFactory(factory: AnyEmbeddableFactory) {
+    this.factories[factory.name] = factory;
+  }
+
+  public getFactoryByName(name: string) {
+    return this.factories[name];
+  }
+
+  public getFactories() {
+    return this.factories;
+  }
+}
+
+export const embeddableFactories = new EmbeddableFactoryRegistry();

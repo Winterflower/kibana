@@ -19,37 +19,34 @@
 
 import { Embeddable } from '../embeddables';
 
-export class Container<S> {
-  private state: S;
+export type AnyContainer = Container<any, any, any>;
+export abstract class Container<I, O, EI> extends Embeddable<I, O> {
+  private readonly embeddables: { [key: string]: Embeddable<EI, any> } = {};
 
-  private readonly embeddables: { [key: string]: Embeddable<S, any> } = {};
-
-  constructor({ initialState }: { initialState: S }) {
-    this.state = initialState;
-  }
-
-  public getState(): Readonly<S> {
-    return this.state;
-  }
-
-  public addEmbeddable(embeddable: Embeddable<S, any>) {
+  public addEmbeddable(embeddable: Embeddable<EI, any>) {
     this.embeddables[embeddable.id] = embeddable;
-    embeddable.onContainerStateChanged(this.state);
+    embeddable.onInputChanged(this.getInputForEmbeddable(embeddable.id));
   }
 
-  public removeEmbeddable(embeddable: Embeddable<S, any>) {
+  public removeEmbeddable(embeddable: Embeddable<EI, any>) {
     this.embeddables[embeddable.id].destroy();
     delete this.embeddables[embeddable.id];
   }
+
+  public abstract getInputForEmbeddable(embeddableId: string): EI;
 
   public getEmbeddable(id: string) {
     return this.embeddables[id];
   }
 
-  public onStateChange(newState: S) {
-    this.state = newState;
-    Object.values(this.embeddables).forEach((embeddable: Embeddable<S, any>) => {
-      embeddable.onContainerStateChanged(this.state);
+  // public emitOutputChanged() {
+  //   this.changeListeners.forEach(listener => listener(this.output));
+  // }
+
+  public onInputChanged(input: I) {
+    this.input = input;
+    Object.values(this.embeddables).forEach((embeddable: Embeddable<EI, any>) => {
+      embeddable.onInputChanged(this.getInputForEmbeddable(embeddable.id));
     });
   }
 }

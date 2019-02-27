@@ -17,18 +17,31 @@
  * under the License.
  */
 
-import { Action } from './action';
+import { Legacy } from 'kibana';
+// @ts-ignore
+import { injectVars } from '../kibana/inject_vars';
+import { Plugin as EmbeddableExplorer } from './plugin';
+import { createShim } from './shim';
 
-class ActionsRegistry {
-  private actions: { [key: string]: Action<any, any> } = {};
+export type CoreShim = object;
 
-  public registerAction(action: Action<any, any>) {
-    this.actions[action.id] = action;
-  }
+// tslint:disable-next-line
+export default function(kibana: any) {
+  return new kibana.Plugin({
+    require: ['kibana'],
+    uiExports: {
+      app: {
+        title: 'Embeddable Explorer',
+        order: 1,
+        main: 'plugins/embeddable_explorer',
+      },
+    },
+    init(server: Legacy.Server) {
+      const embeddableExplorer = new EmbeddableExplorer(server);
+      embeddableExplorer.start(createShim());
 
-  public getActionById(id: string) {
-    return this.actions[id];
-  }
+      // @ts-ignore
+      server.injectUiAppVars('embeddable_explorer', () => injectVars(server));
+    },
+  });
 }
-
-export const actionRegistry = new ActionsRegistry();

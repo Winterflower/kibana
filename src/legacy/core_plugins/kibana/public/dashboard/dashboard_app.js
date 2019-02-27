@@ -50,13 +50,16 @@ import { showShareContextMenu, ShareContextMenuExtensionsRegistryProvider } from
 import { migrateLegacyQuery } from 'ui/utils/migrate_legacy_query';
 import * as filterActions from 'ui/doc_table/actions/filter';
 import { FilterManagerProvider } from 'ui/filter_manager';
-import { EmbeddableFactoriesRegistryProvider } from 'ui/embeddable/embeddable_factories_registry';
-import { ContextMenuActionsRegistryProvider } from 'ui/embeddable';
+import { ContextMenuActionsRegistryProvider, EmbeddableFactoriesRegistryProvider } from 'ui/embeddable';
 import { VisTypesRegistryProvider } from 'ui/registry/vis_types';
 import { timefilter } from 'ui/timefilter';
 import { getUnhashableStatesProvider } from 'ui/state_management/state_hashing';
+import { store } from '../store';
+import { resetState } from './actions';
 
-import { DashboardViewportProvider } from './viewport/dashboard_viewport_provider';
+//import { DashboardViewportProvider } from './viewport/dashboard_viewport_provider';
+import { DASHBOARD_CONTAINER_TYPE } from './embeddables/dashboard_container_factory';
+import { DashboardState } from './selectors';
 
 const app = uiModules.get('app/dashboard', [
   'elasticsearch',
@@ -66,9 +69,9 @@ const app = uiModules.get('app/dashboard', [
   'kibana/config',
 ]);
 
-app.directive('dashboardViewportProvider', function (reactDirective) {
-  return reactDirective(wrapInI18nContext(DashboardViewportProvider));
-});
+// app.directive('dashboardViewportProvider', function (reactDirective) {
+//   return reactDirective(wrapInI18nContext(DashboardViewportProvider));
+// });
 
 app.directive('dashboardApp', function ($injector) {
   const courier = $injector.get('courier');
@@ -96,14 +99,11 @@ app.directive('dashboardApp', function ($injector) {
       const queryFilter = Private(FilterBarQueryFilterProvider);
       const docTitle = Private(DocTitleProvider);
       const embeddableFactories = Private(EmbeddableFactoriesRegistryProvider);
-      const panelActionsRegistry = Private(ContextMenuActionsRegistryProvider);
       const getUnhashableStates = Private(getUnhashableStatesProvider);
       const shareContextMenuExtensions = Private(ShareContextMenuExtensionsRegistryProvider);
 
-      panelActionsStore.initializeFromRegistry(panelActionsRegistry);
 
       const visTypes = Private(VisTypesRegistryProvider);
-      $scope.getEmbeddableFactory = panelType => embeddableFactories.byName[panelType];
 
       const dash = $scope.dash = $route.current.locals.dash;
       if (dash.id) {
@@ -184,6 +184,23 @@ app.directive('dashboardApp', function ($injector) {
       };
       dashboardStateManager.handleTimeChange(timefilter.getTime());
       dashboardStateManager.handleRefreshConfigChange(timefilter.getRefreshInterval());
+
+      const dashboardDom = document.getElementById('dashboardViewport');
+      const dashboardFactory = embeddableFactories.byName[DASHBOARD_CONTAINER_TYPE];
+
+      dashboardFactory.setGetEmbeddableFactory((type) => embeddableFactories.byName[type]);
+      dashboardFactory
+        .create({ id: saveDashboard.id }, store.getState().dashboard).then(dashboardEmbeddable => {
+          dashboardEmbeddable.onOutputChanged((output) => {
+            store.dispatch(resetState(output));
+          });
+          dashboardEmbeddable.render(dashboardDom);
+          dashboardStateManager.registerChangeListener(() => {
+            if (!_.isEqual(dashboardEmbeddable.input, store.getState().dashboard)) {
+              dashboardEmbeddable.onInputChanged(store.getState().dashboard);
+            }
+          });
+        });
 
       $scope.expandedPanel = null;
       $scope.dashboardViewMode = dashboardStateManager.getViewMode();

@@ -16,95 +16,85 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-
-import { migrateState, Migrator } from 'ui/embeddable/migrator';
+import { ReactNode } from 'react';
+import { BehaviorSubject } from 'rxjs';
+import { Container } from 'ui/embeddable/containers';
+import { EmbeddableFactory, OutputSpec } from 'ui/embeddable/embeddables/embeddable_factory';
+import { Trigger } from 'ui/embeddable/triggers';
 import { Adapters } from 'ui/inspector';
 
-export interface EmbeddableMetadata {
-  /**
-   * Should specify any index pattern the embeddable uses. This will be used by the container to list out
-   * available fields to filter on.
-   */
-  indexPatterns?: object[];
-
-  /**
-   * The title, or name, of the embeddable.
-   */
-  title?: string;
-
-  /**
-   * A url to direct the user for managing the embeddable instance. We may want to eventually make this optional
-   * for non-instanced panels that can only be created and deleted but not edited. We also wish to eventually support
-   * in-place editing on the dashboard itself, so another option could be to supply an element, or fly out panel, to
-   * offer for editing directly on the dashboard.
-   */
-  editUrl?: string;
-
-  type: string;
-}
-
-interface EmbeddableConfiguration {
+interface EmbeddableConfiguration<I, O> {
   id: string;
   type: string;
+  factory: EmbeddableFactory<I, O>;
 }
 
-export abstract class Embeddable<I, O> {
-  public type: string;
-  public id: string;
-  private inputContext?: I;
-  private inputMigrators: { [key: string]: Migrator<I> } = {};
-  private outputMigrators: { [key: string]: Migrator<O> } = {};
+export type AnyEmbeddable = Embeddable<any, any>;
 
-  // TODO: Make title and editUrl required and move out of options parameter.
-  constructor({ type, id }: EmbeddableConfiguration) {
+export abstract class Embeddable<I, O> {
+  public readonly type: string;
+  public readonly id: string;
+  public container?: Container<any, any, I>;
+  protected output: O;
+  protected input: I;
+  protected factory: EmbeddableFactory<I, O>;
+  protected changeListeners: Array<(output: O) => void> = [];
+
+  constructor(
+    { type, id, factory }: EmbeddableConfiguration<I, O>,
+    initialOutput: O,
+    initialInput: I
+  ) {
     this.type = type;
     this.id = id;
+    this.output = initialOutput;
+    this.input = initialInput;
+    this.factory = factory;
   }
 
-  public addInputMigrator(migrator: Migrator<I>) {
-    this.inputMigrators[migrator.id] = migrator;
-    if (this.inputContext) {
-      this.onContainerStateChanged(this.inputContext);
+  public getFactory() {
+    return this.factory;
+  }
+
+  public setContainer(container: Container<any, any, I>) {
+    this.container = container;
+  }
+
+  public onInputChanged(input: I): void {
+    this.input = input;
+  }
+
+  public getOutput(): Readonly<O> {
+    return this.output;
+  }
+
+  public getInput(): Readonly<I> {
+    return this.input;
+  }
+
+  public getOutputSpec(trigger?: Trigger): OutputSpec {
+    return {};
+  }
+
+  public onOutputChanged(listener: (output: O) => void) {
+    this.changeListeners.push(listener);
+  }
+
+  public emitOutputChanged(output: O) {
+    if (!_.isEqual(this.output, output)) {
+      this.output = output;
+      this.changeListeners.forEach(listener => listener(this.output));
     }
   }
 
-  public addOutputMigrator(migrator: Migrator<O>) {
-    this.outputMigrators[migrator.id] = migrator;
+  public supportsTrigger(trigger: Trigger) {
+    return false;
   }
-
-  public removeInputMigrator(id: string) {
-    delete this.inputMigrators[id];
-    if (this.inputContext) {
-      this.onContainerStateChanged(this.inputContext);
-    }
-  }
-
-  public removeOutputMigrator(id: string) {
-    delete this.outputMigrators[id];
-  }
-
-  public getInputMigrator(id: string) {
-    return this.inputMigrators[id];
-  }
-
-  public getOutputMigrator(id: string) {
-    return this.outputMigrators[id];
-  }
-
-  public onContainerStateChanged(containerState: I): void {
-    this.inputContext = containerState;
-    const migratedInput = this.getMigratedInput();
-    if (migratedInput) {
-      this.onInputChange(migratedInput);
-    }
-  }
-
-  public abstract getOutput(): O;
 
   /**
    * Embeddable should render itself at the given domNode.
    */
-  public abstract render(domNode: HTMLElement, containerState: I): void;
+  public abstract render(domNode: HTMLElement | ReactNode): void;
 
   /**
    * An embeddable can return inspector adapters if it want the inspector to be
@@ -122,10 +112,4 @@ export abstract class Embeddable<I, O> {
   public reload(): void {
     return;
   }
-
-  protected getMigratedInput() {
-    return migrateState(this.inputContext, this.inputMigrators);
-  }
-
-  protected abstract onInputChange(containerState: I): void;
 }
